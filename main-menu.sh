@@ -1,25 +1,49 @@
 #!/bin/bash
 
 create_database() {
-
-    if [ ! -d "Databases" ]; 
-    then
+    if [ ! -d "Databases" ]; then
         echo "Creating 'Databases' directory"
         mkdir Databases
     fi
+
     cd Databases || exit
 
-    read -p "Enter database name: " dbname
+    while true; do
+        read -p "Enter database name: " dbname
 
-    if [ -d "$dbname" ]; 
-    then
-        echo "Database '$dbname' already exists."
-    else
+        if [ -z "$dbname" ]; then
+            echo "Database name cannot be empty. Please enter a valid name."
+            continue
+        fi
+
+        if [[ ! "$dbname" =~ ^[a-zA-Z] ]]; then
+            echo "Database name must start with a letter. Please enter a valid name."
+            continue
+        fi
+
+        if [[ ! "$dbname" =~ ^[a-zA-Z0-9_]+$ ]]; then
+            echo "Database name can only contain letters, numbers, and underscores. Please enter a valid name."
+            continue
+        fi
+
+        if [[ "$dbname" =~ [[:space:]] ]]; then
+            echo "Database name cannot contain spaces. Please enter a valid name."
+            continue
+        fi
+
+        if [ -d "$dbname" ]; then
+            echo "Database '$dbname' already exists. Please enter a different name."
+            continue
+        fi
+
         mkdir "$dbname"
         echo "Database '$dbname' created successfully."
-    fi
+        break
+    done
+
     cd ..
 }
+
 
 
 list_databases() {

@@ -62,7 +62,6 @@ create_database() {
         echo "Database '$dbname' created successfully."
         break
     done
-
     cd ..
 }
 
@@ -91,8 +90,63 @@ connect_to_database() {
 }
 
 drop_database() {
-    echo "Dropping a database"
+    if [ ! -d "Databases" ]; then
+        echo "No databases found. 'Databases' directory does not exist."
+        return
+    fi
+
+    database_count=$(find Databases -mindepth 1 -maxdepth 1 -type d -not -name "Databases" | wc -l)
+
+    if [ "$database_count" -eq 0 ]; then
+        echo "There are no databases to drop."
+        return
+    fi
+
+    cd Databases || { echo "Failed to access 'Databases' directory."; exit 1; }
+
+    while true; do
+        read -p "Enter database name or type 'exit' to cancel: " dbname
+
+        if [ "$dbname" = "exit" ]; then
+            echo "Exiting without dropping a database."
+            break
+        fi
+
+        if [ -z "$dbname" ]; then
+            echo "Database name cannot be empty. Please enter a valid name or type 'exit' to cancel."
+            continue
+        fi
+
+        if [[ ! "$dbname" =~ ^[a-zA-Z] ]]; then
+            echo "Database name must start with a letter. Please enter a valid name or type 'exit' to cancel."
+            continue
+        fi
+
+        if [[ ! "$dbname" =~ ^[a-zA-Z0-9_]+$ ]]; then
+            echo "Database name can only contain letters, numbers, and underscores. Please enter a valid name or type 'exit' to cancel."
+            continue
+        fi
+
+        if [[ "$dbname" =~ [[:space:]] ]]; then
+            echo "Database name cannot contain spaces. Please enter a valid name or type 'exit' to cancel."
+            continue
+        fi
+
+        if [ ! -d "$dbname" ]; then
+            echo "Database '$dbname' does not exist. Please enter a valid name or type 'exit' to cancel."
+            continue
+        fi
+
+        rm -rf "$dbname"
+        echo "Database '$dbname' dropped successfully."
+        break
+    done
+
+    # Return to the parent directory
+    cd ..
 }
+
+
 
 main_menu() {
     while true; 

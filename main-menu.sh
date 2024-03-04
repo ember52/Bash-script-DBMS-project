@@ -62,7 +62,7 @@ create_database() {
         echo "Database '$dbname' created successfully."
         break
     done
-    cd ..
+    cd .. || { echo "Failed to return to the main directory."; exit 1; }
 }
 
 list_databases() {
@@ -99,8 +99,6 @@ connect_to_database() {
 
     list_databases
 
-    cd Databases || { echo "Failed to access 'Databases' directory."; exit 1; }
-
     while true; do
         read -p "Enter the name of the database to connect to or type 'exit' to cancel: " dbname
 
@@ -129,18 +127,23 @@ connect_to_database() {
             continue
         fi
 
-        if [ ! -d "$dbname" ]; then
+        if [ ! -d "Databases/$dbname" ]; then
             echo "Database '$dbname' does not exist. Please enter a valid name or type 'exit' to cancel."
             continue
         fi
 
-        # the script goes here
         echo "Connecting to database '$dbname'..."
+        
+        local second_menu="second-menu.sh"
+        if [ -f "$second_menu" ]; then
+            source "$second_menu" "$dbname"
+        else
+            echo "Script '$second_menu' not found. (try putting the 'second-menu.sh' in the same path as this script)"
+        fi
         break
     done
-
-    cd ..
 }
+
 
 drop_database() {
     if [ ! -d "Databases" ]; then
@@ -200,7 +203,7 @@ drop_database() {
         break
     done
 
-    cd ..
+    cd .. || { echo "Failed to return to the main directory."; exit 1; }
 }
 
 
@@ -208,7 +211,7 @@ drop_database() {
 main_menu() {
     while true; 
     do
-        PS3="Please enter your choice: "
+        PS3="Please enter your choice (select a number from the above): "
         options=("Create Database" "List Databases" "Connect To Database" "Drop Database" "Quit")
 
         select opt in "${options[@]}"; 

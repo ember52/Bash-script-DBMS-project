@@ -73,7 +73,7 @@ list_databases() {
         if [ ! -r "Databases" ]; then
             echo "Permission denied. Cannot access 'Databases' directory (check the permissions of the 'Databases' directory then retry)."
         else
-            # Excluding 'Databases' directory from listing
+
             database_count=$(find Databases -mindepth 1 -maxdepth 1 -type d -perm /u+rx ! -name "Databases" | wc -l)
             if [ $database_count -eq 0 ]; then
                 echo "No databases found inside the directory 'Databases'."
@@ -86,7 +86,60 @@ list_databases() {
 }
 
 connect_to_database() {
-    echo "Connecting to a database"
+    if [ ! -d "Databases" ]; then
+        echo "No databases found. 'Databases' directory does not exist."
+        return
+    fi
+
+    database_count=$(find Databases -mindepth 1 -maxdepth 1 -type d -not -name "Databases" | wc -l)
+    if [ "$database_count" -eq 0 ]; then
+        echo "There are no databases available to connect to."
+        return
+    fi
+
+    list_databases
+
+    cd Databases || { echo "Failed to access 'Databases' directory."; exit 1; }
+
+    while true; do
+        read -p "Enter the name of the database to connect to or type 'exit' to cancel: " dbname
+
+        if [ "$dbname" = "exit" ]; then
+            echo "Exiting without connecting to a database."
+            break
+        fi
+
+        if [ -z "$dbname" ]; then
+            echo "Database name cannot be empty. Please enter a valid name or type 'exit' to cancel."
+            continue
+        fi
+
+        if [[ ! "$dbname" =~ ^[a-zA-Z] ]]; then
+            echo "Database name must start with a letter. Please enter a valid name or type 'exit' to cancel."
+            continue
+        fi
+
+        if [[ ! "$dbname" =~ ^[a-zA-Z0-9_]+$ ]]; then
+            echo "Database name can only contain letters, numbers, and underscores. Please enter a valid name or type 'exit' to cancel."
+            continue
+        fi
+
+        if [[ "$dbname" =~ [[:space:]] ]]; then
+            echo "Database name cannot contain spaces. Please enter a valid name or type 'exit' to cancel."
+            continue
+        fi
+
+        if [ ! -d "$dbname" ]; then
+            echo "Database '$dbname' does not exist. Please enter a valid name or type 'exit' to cancel."
+            continue
+        fi
+
+        # the script goes here
+        echo "Connecting to database '$dbname'..."
+        break
+    done
+
+    cd ..
 }
 
 drop_database() {
@@ -110,6 +163,11 @@ drop_database() {
         if [ "$dbname" = "exit" ]; then
             echo "Exiting without dropping a database."
             break
+        fi
+        
+        if [ "$dbname" = "Databases" ]; then
+            echo "Cannot access a database with the name 'Databases'. Please enter a different name."
+            continue
         fi
 
         if [ -z "$dbname" ]; then
@@ -142,7 +200,6 @@ drop_database() {
         break
     done
 
-    # Return to the parent directory
     cd ..
 }
 

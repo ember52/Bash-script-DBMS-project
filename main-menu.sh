@@ -1,13 +1,13 @@
 #!/bin/bash
 
+source table-operations.sh
+
 create_database() {
     if [ ! -d "Databases" ]; 
     then
         echo "Creating 'Databases' directory"
         mkdir -p Databases || { echo "Failed to create 'Databases' directory"; exit 1; }
     fi
-
-    cd Databases || { echo "Failed to access 'Databases' directory (check the permissions of the 'Databases' directory then retry)"; exit 1; }
 
     while true; 
     do
@@ -24,45 +24,22 @@ create_database() {
             continue
         fi
 
-        if [ -z "$dbname" ]; 
-        then
-            echo "Database name cannot be empty. Please enter a valid name."
-            continue
-        fi
-        if [ ${#dbname} -gt 50 ]; then
-            echo "Database name is too long. Please enter a shorter name."
-            continue
-        fi
+        validate_input "$dbname" "Database name"
 
-        if [[ ! "$dbname" =~ ^[a-zA-Z] ]]; 
-        then
-            echo "Database name must start with a letter. Please enter a valid name."
-            continue
-        fi
-
-        if [[ ! "$dbname" =~ ^[a-zA-Z0-9_]+$ ]]; 
-        then
-            echo "Database name can only contain letters, numbers, and underscores. Please enter a valid name."
-            continue
-        fi
-
-        if [[ "$dbname" =~ [[:space:]] ]]; 
-        then
-            echo "Database name cannot contain spaces. Please enter a valid name."
+        if [ $? -ne 0 ]; then
             continue
         fi
 
         if [ -d "$dbname" ]; 
         then
-            echo "Database '$dbname' already exists. Please enter a different name."
-            continue
+            echo "database '$dbname' already exists. Please enter a different name."
+            return 1
         fi
 
-        mkdir "$dbname" || { echo "Failed to create database '$dbname'"; exit 1; }
+        mkdir "Databases/$dbname" || { echo "Failed to create database '$dbname'"; exit 1; }
         echo "Database '$dbname' created successfully."
         break
     done
-    cd .. || { echo "Failed to return to the main directory."; exit 1; }
 }
 
 list_databases() {
@@ -107,23 +84,9 @@ connect_to_database() {
             break
         fi
 
-        if [ -z "$dbname" ]; then
-            echo "Database name cannot be empty. Please enter a valid name or type 'exit' to cancel."
-            continue
-        fi
+        validate_input "$dbname" "Database name"
 
-        if [[ ! "$dbname" =~ ^[a-zA-Z] ]]; then
-            echo "Database name must start with a letter. Please enter a valid name or type 'exit' to cancel."
-            continue
-        fi
-
-        if [[ ! "$dbname" =~ ^[a-zA-Z0-9_]+$ ]]; then
-            echo "Database name can only contain letters, numbers, and underscores. Please enter a valid name or type 'exit' to cancel."
-            continue
-        fi
-
-        if [[ "$dbname" =~ [[:space:]] ]]; then
-            echo "Database name cannot contain spaces. Please enter a valid name or type 'exit' to cancel."
+        if [ $? -ne 0 ]; then
             continue
         fi
 
@@ -158,8 +121,6 @@ drop_database() {
         return
     fi
 
-    cd Databases || { echo "Failed to access 'Databases' directory."; exit 1; }
-
     while true; do
         read -p "Enter database name or type 'exit' to cancel: " dbname
 
@@ -173,37 +134,21 @@ drop_database() {
             continue
         fi
 
-        if [ -z "$dbname" ]; then
-            echo "Database name cannot be empty. Please enter a valid name or type 'exit' to cancel."
+        validate_input "$dbname" "Database name"
+
+        if [ $? -ne 0 ]; then
             continue
         fi
 
-        if [[ ! "$dbname" =~ ^[a-zA-Z] ]]; then
-            echo "Database name must start with a letter. Please enter a valid name or type 'exit' to cancel."
-            continue
-        fi
-
-        if [[ ! "$dbname" =~ ^[a-zA-Z0-9_]+$ ]]; then
-            echo "Database name can only contain letters, numbers, and underscores. Please enter a valid name or type 'exit' to cancel."
-            continue
-        fi
-
-        if [[ "$dbname" =~ [[:space:]] ]]; then
-            echo "Database name cannot contain spaces. Please enter a valid name or type 'exit' to cancel."
-            continue
-        fi
-
-        if [ ! -d "$dbname" ]; then
+        if [ ! -d "Databases/$dbname" ]; then
             echo "Database '$dbname' does not exist. Please enter a valid name or type 'exit' to cancel."
             continue
         fi
 
-        rm -rf "$dbname"
+        rm -rf "Databases/$dbname"
         echo "Database '$dbname' dropped successfully."
         break
     done
-
-    cd .. || { echo "Failed to return to the main directory."; exit 1; }
 }
 
 

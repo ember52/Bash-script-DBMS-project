@@ -1,10 +1,10 @@
 #!/bin/bash
-
+source table-operations.sh
 # Accepting the database name as a parameter
 database_name="$1"
 
 create_table() {
-cd Databases/"$database_name" || { echo "Failed to access '$database_name' directory."; return; }
+    local database_path="Databases/$database_name"
 
     while true; do
         read -p "Enter table name or type 'exit' to cancel: " table_name
@@ -14,34 +14,24 @@ cd Databases/"$database_name" || { echo "Failed to access '$database_name' direc
             return
         fi
 
-        if [ -z "$table_name" ]; then
-            echo "Table name cannot be empty. Please enter a valid name."
+        validate_input "$table_name" "Table name"
+
+        if [ $? -ne 0 ]; then
             continue
         fi
 
-        if [[ ! "$table_name" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
-            echo "Table name must start with a letter and can only contain letters, numbers, and underscores."
-            continue
-        fi
-
-        if [[ "$table_name" =~ [[:space:]] ]]; then
-            echo "Table name cannot contain spaces. Please enter a valid name."
-            continue
-        fi
-
-        if [ -f "${table_name}.txt" ] || [ -f "${table_name}-meta.txt" ]; then
+        if [ -f "$database_path/$table_name.txt" ] || [ -f "$database_path/${table_name}-meta.txt" ]; then
             echo "Table '$table_name' already exists. Please choose a different name."
             continue
         fi
 
-        touch "${table_name}.txt" || { echo "Failed to create data file for table '$table_name'."; return; }
-
-
-        touch "${table_name}-meta.txt" || { echo "Failed to create metadata file for table '$table_name'."; return; }
+        touch "$database_path/$table_name.txt" || { echo "Failed to create data file for table '$table_name'."; return; }
+        touch "$database_path/${table_name}-meta.txt" || { echo "Failed to create metadata file for table '$table_name'."; return; }
         echo "Table '$table_name' created successfully."
 
+        # Call function to add columns to the table
+        add_columns "$table_name" "$database_path"
         break
-    cd ../.. || { echo "Failed to return to the main directory."; exit 1; }
     done
 }
 

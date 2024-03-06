@@ -122,7 +122,9 @@ drop_database() {
     fi
 
     while true; do
-        read -p "Enter database name or type 'exit' to cancel: " dbname
+
+        list_databases
+        read -p "Enter database name to drop or type 'exit' to cancel: " dbname
 
         if [ "$dbname" = "exit" ]; then
             echo "Exiting without dropping a database."
@@ -144,6 +146,17 @@ drop_database() {
             echo "Database '$dbname' does not exist. Please enter a valid name or type 'exit' to cancel."
             continue
         fi
+
+        read -p "Are you sure you want to drop database '$dbname'? (yes/no): " confirm
+        while [[ "$confirm" != "yes" && "$confirm" != "no" ]]; do
+            read -p "Invalid input. Please type 'yes' to confirm or 'no' to cancel: " confirm
+        done
+
+        if [ "$confirm" != "yes" ]; then
+            echo "Dropping database '$dbname' canceled."
+            return
+        fi
+
 
         rm -rf "Databases/$dbname"
         echo "Database '$dbname' dropped successfully."

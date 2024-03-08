@@ -44,11 +44,16 @@ add_columns() {
     done
 
     for ((i = 1; i <= num_columns; i++)); do
-        read -p "Enter name for column $i: " column_name
+        read -p "Enter name for column $i or type 'exit' to cancel: " column_name
         validate_input "$column_name" "Column name"
         if [ $? -ne 0 ]; then
             ((i--))  # Decrement i to re-ask for the same column number
             continue
+        fi
+
+        if [ "$column_name" = "exit" ]; then
+            echo "Exiting without creating a table."
+            return 1
         fi
 
         read -p "Enter data type for column $column_name (string/integer): " data_type
@@ -107,7 +112,165 @@ add_columns() {
     echo "Columns added successfully."
 }
 
+insert_into_table_data() {
+    local table_name="$1"
+
+    # Get column names and constraints from meta file
+    column_metadata=$(cat "$database_path/${table_name}-meta.txt")
+    IFS=$'\n' read -rd '' -a columns <<< "$column_metadata"
+
+    # Prompt user to enter data for each column
+    data=()
+    for column_info in "${columns[@]}"; do
+        IFS=':' read -ra column <<< "$column_info"
+        column_name="${column[0]}"
+        data_type="${column[1]}"
+        allow_null="${column[2]}"
+        allow_unique="${column[3]}"
+        is_primary="${column[4]}"
+
+        while true; do
+            read -p "Enter value for $column_name (type exit to cancel): " value
+
+            # Check if user wants to exit
+            if [ "$value" = "exit" ]; then
+                echo "Exiting without inserting data."
+                return 1
+            fi
+
+            # Check for empty value when not allowed
+            if [ -z "$value" ]; then
+                if [ "$allow_null" = "yes" ]; then
+                    value="null"
+                else
+                    echo "Null value is not allowed for column '$column_name'."
+                    continue
+                fi
+            fi
+
+            # Check if the value is 'null' and the column does not allow null
+            if [ "$value" = "null" ] && [ "$allow_null" != "yes" ]; then
+                echo "Null value is not allowed for column '$column_name'."
+                continue
+            fi
+
+            # Validate data type
+            if [ "$data_type" = "integer" ]; then
+                if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+                    echo "Invalid data type for column '$column_name'. Please enter an integer value."
+                    continue
+                fi
+            elif [ "$data_type" = "string" ]; then
+                # Check if string contains only alphanumeric characters (excluding spaces as the first character)
+                if [[ ! "$value" =~ ^[a-zA-Z0-9._%+-@]+$ ]]; then
+                    echo "Invalid string format for column '$column_name'."
+                    continue
+                fi
+            fi
+
+            # Check for unique constraint
+            if [ "$allow_unique" = "yes" ] && [ "$value" != "null" ]; then
+                if grep -q "^$value:" "$database_path/$table_name.txt"; then
+                    echo "Value '$value' already exists in column '$column_name'."
+                    continue
+                fi
+            fi
+
+            # Check for primary key constraint
+            if [ "$is_primary" = "yes" ]; then
+                if grep -q "^$value:" "$database_path/$table_name.txt"; then
+                    echo "Primary key value '$value' already exists in column '$column_name'."
+                    continue
+                fi
+            fi
+
+            # Add value to data array
+            data+=("$value")
+            break
+        done
+    done
+
+    # Write data to table file
+    echo "${data[*]}" | tr ' ' ':' >> "$database_path/$table_name.txt" || {
+        echo "Error writing data to table file '$table_name.txt'."
+        return 1
+    }
+
+    echo "Data inserted into table '$table_name' successfully."
+}
 
 
+display_selected_data() {
+    local table_name="$1"
+    local selected_columns="$2"
+    local columns="$3"
+    local filter_column="$4"
+    local filter_value="$5"
+    local data_file="$database_path/${table_name}.txt"
+    local meta_file="$database_path/${table_name}-meta.txt"
 
+    # Read column names and their indices from metadata file
+    local column_indices=$(awk -F ':' '{print NR-1 ":" $1}' "$meta_file")
+    
+    # Map selected column numbers to actual column indices
+    local selected_indices=""
+    IFS=',' read -r -a column_numbers <<< "$selected_columns"
+    for col_num in "${column_numbers[@]}"; do
+        local index=$((col_num - 1))
+        selected_indices+="$index "
+    done
 
+    # Display selected column names aligned with data
+    local col_names_array=($columns)
+    for index in $selected_indices; do
+        local col_name=$(awk -v index1="$index" -F ':' '$1 == index1 {print $2}' <<< "$column_indices")
+        printf "%-15s" "$col_name"
+    done
+    echo ""
+
+    # Read and display selected data
+    while IFS=':' read -r -a row_data; do
+        if [ -n "$filter_column" ]; then
+            # Check if row matches filter criteria
+            local filter_column_index=$(awk -F ':' -v col="$filter_column" '$1 == col {print NR-1}' "$meta_file")
+            local filter_value_found="${row_data[$filter_column_index]}"
+            if [ "$filter_value_found" != "$filter_value" ]; then
+                continue
+            fi
+        fi
+
+        for index in $selected_indices; do
+            printf "%-15s" "${row_data[$index]}"
+        done
+        echo ""
+    done < "$data_file"
+}
+
+delete_rows() {
+    local table_name="$1"
+    local filter_column="$2"
+    local filter_value="$3"
+    local data_file="$database_path/${table_name}.txt"
+    local meta_file="$database_path/${table_name}-meta.txt"
+    local temp_file="/tmp/delete_temp.txt"  
+
+    # Find the filter column index
+    local filter_column_index=$(awk -F ':' -v col="$filter_column" '$1 == col { print NR; exit }' "$meta_file")
+
+    # Check if filter column exists
+    if [ -z "$filter_column_index" ]; then
+        echo "Error: Filter column '$filter_column' not found."
+        return 1
+    fi
+
+    # Delete rows that match filter criteria
+    awk -F ':' -v col="$filter_column_index" -v val="$filter_value" '$col != val' "$data_file" > "$temp_file"
+    
+    # Compare the original data file with the modified one
+    if cmp -s "$data_file" "$temp_file"; then
+        echo "No rows were deleted."
+    else
+        mv "$temp_file" "$data_file"
+        echo "Rows deleted successfully."
+    fi
+}

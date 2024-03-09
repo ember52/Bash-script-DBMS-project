@@ -1,15 +1,31 @@
 #!/bin/bash
+# Define color variables
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[1;34m'
+MAGENTA='\033[1;35m'
+CYAN='\033[1;36m'
+NC='\033[0m'
+BOLD='\033[1m'
+LINE='\033[1;37m============================================================\033[0m'
+echo -e "${BOLD}${CYAN}Welcome to Database Manager!${NC}"
+echo -e "${LINE}"
 # Accepting the database name as a parameter
+
+
 database_name="$1"
 database_path="Databases/$database_name"
 
 # Function to create a new table
 create_table() {
+    echo -e "${BOLD}${CYAN}Create a New Table${NC}"
+    echo -e "${LINE}"
     while true; do
-        read -p "Enter table name or type 'exit' to cancel: " table_name
+        read -p "$(echo -e ${YELLOW}"Enter table name or type 'exit' to cancel: "${NC})" table_name
 
         if [ "$table_name" = "exit" ]; then
-            echo "Exiting without creating a table."
+            echo -e "${RED}Exiting without creating a table.${NC}"
             return
         fi
 
@@ -20,22 +36,22 @@ create_table() {
         fi
 
         if [ -f "$database_path/$table_name.txt" ] || [ -f "$database_path/${table_name}-meta.txt" ]; then
-            echo "Table '$table_name' already exists. Please choose a different name."
+            echo -e "${RED}Table '$table_name' already exists. Please choose a different name.${NC}"
             continue
         fi
 
-        touch "$database_path/$table_name.txt" || { echo "Failed to create data file for table '$table_name'."; return; }
-        touch "$database_path/${table_name}-meta.txt" || { echo "Failed to create metadata file for table '$table_name'."; return; }
-        echo "Table '$table_name' created successfully."
+        touch "$database_path/$table_name.txt" || { echo -e "${RED}Failed to create data file for table '$table_name'.${NC}"; return; }
+        touch "$database_path/${table_name}-meta.txt" || { echo -e "${RED}Failed to create metadata file for table '$table_name'.${NC}"; return; }
+        echo -e "${GREEN}Table '$table_name' created successfully.${NC}"
 
         # Call function to add columns to the table
         add_columns "$table_name" "$database_path"
 
         if [ $? -ne 0 ]; then
             # Delete table files if no primary key was selected
-            rm "$database_path/$table_name.txt" || { echo "Failed to delete data file for table '$table_name'."; return; }
-            rm "$database_path/${table_name}-meta.txt" || { echo "Failed to delete metadata file for table '$table_name'."; return; }
-            echo "Table creation canceled due to the absence of a primary key."
+            rm "$database_path/$table_name.txt" || { echo -e "${RED}Failed to delete data file for table '$table_name'.${NC}"; return; }
+            rm "$database_path/${table_name}-meta.txt" || { echo -e "${RED}Failed to delete metadata file for table '$table_name'.${NC}"; return; }
+            echo -e "${RED}Table creation canceled due to the absence of a primary key.${NC}"
             continue
         fi
         break
@@ -44,101 +60,103 @@ create_table() {
 
 # Function to list tables in the database
 list_tables() {
-    echo "Tables in the database:"
+    echo -e "${GREEN}Tables in the database:${NC}"
+    echo -e "${LINE}"
     local table_count=$(find "$database_path" -maxdepth 1 -type f -name "*.txt" | grep -c '\-meta\.txt$')
 
     if [ "$table_count" -eq 0 ]; then
-        echo "No tables found in the database."
+        echo -e "${RED}No tables found in the database.${NC}"
         return 1
     else
-        echo "Total tables: $table_count"
+        echo -e "${BLUE}Total tables: $table_count${NC}"
         find "$database_path" -maxdepth 1 -type f -name "*.txt" | grep -v '\-meta\.txt$' | sed 's|.*/\(.*\)\.txt|\1|'
         return 0
     fi
 }
 
 drop_table() {
+    echo -e "${BOLD}${CYAN}Drop a Table${NC}"
+    echo -e "${LINE}"
     while true; do
-        echo "Dropping a table..."
+        echo -e "${YELLOW}Dropping a table...${NC}"
         # List existing tables
         list_tables
         # Check if there are no tables
         if [ $? -ne 0 ]; then
-            echo "Failed to list tables."
+            echo -e "${RED}Failed to list tables.${NC}"
             return 1
         fi
 
         # Take input for the table name to drop
-        read -p "Enter the name of the table to drop or type 'exit' to cancel: " table_name
+        read -p "$(echo -e ${YELLOW}"Enter the name of the table to drop or type 'exit' to cancel: "${NC})" table_name
 
         # Check if user wants to exit
         if [ "$table_name" = "exit" ]; then
-            echo "Exiting without dropping a table."
+            echo -e "${RED}Exiting without dropping a table.${NC}"
             return 1
         fi
 
         # Validate input
         validate_input "$table_name" "Table name"
         if [ $? -ne 0 ]; then
-            echo "Invalid table name. Please enter a valid table name."
+            echo -e "${RED}Invalid table name. Please enter a valid table name.${NC}"
             continue
         fi
 
         # Check if the table file exists
         if [ ! -f "$database_path/$table_name.txt" ]; then
-            echo "Table '$table_name' does not exist."
+            echo -e "${RED}Table '$table_name' does not exist.${NC}"
             continue
         fi
 
         # Confirm deletion
-        read -p "Are you sure you want to drop table '$table_name'? (type yes to confirm / type anything to cancel): " confirm
+        read -p "$(echo -e ${YELLOW}"Are you sure you want to drop table '$table_name'? (type yes to confirm / type anything to cancel): "${NC})" confirm
         while [[ "$confirm" != "yes" && "$confirm" != "no" ]]; do
-            read -p "Invalid input. Please type 'yes' to confirm or 'no' to cancel: " confirm
+            read -p "$(echo -e ${YELLOW}"Invalid input. Please type 'yes' to confirm or 'no' to cancel: "${NC})" confirm
         done
 
         if [ "$confirm" != "yes" ]; then
-            echo "Dropping table '$table_name' canceled."
+            echo -e "${RED}Dropping table '$table_name' canceled.${NC}"
             return 1
         fi
 
 
         # Delete table file and its metadata
-        rm "$database_path/$table_name.txt" || { echo "Failed to delete data file for table '$table_name'."; return 1; }
-        rm "$database_path/${table_name}-meta.txt" || { echo "Failed to delete metadata file for table '$table_name'."; return 1; }
-        echo "Table '$table_name' dropped successfully."
+        rm "$database_path/$table_name.txt" || { echo -e "${RED}Failed to delete data file for table '$table_name'.${NC}"; return 1; }
+        rm "$database_path/${table_name}-meta.txt" || { echo -e "${RED}Failed to delete metadata file for table '$table_name'.${NC}"; return 1; }
+        echo -e "${GREEN}Table '$table_name' dropped successfully.${NC}"
 
         break
     done
 }
 
-
-
 insert_into_table() {
-    echo "Insert into table:"
+    echo -e "${BOLD}${CYAN}Insert Into Table${NC}"
+    echo -e "${LINE}"
     # List available tables
     list_tables
     if [ $? -ne 0 ]; then
-        echo "Failed to list tables. Exiting insert operation."
+        echo -e "${RED}Failed to list tables. Exiting insert operation.${NC}"
         return 1
     fi
     # Ask user to select a table
     local table_name
     while true; do
-        read -p "Enter the name of the table to insert into or type 'exit' to cancel: " table_name
+        read -p "$(echo -e ${YELLOW}"Enter the name of the table to insert into or type 'exit' to cancel: "${NC})" table_name
         if [ "$table_name" = "exit" ]; then
-            echo "Exiting insert operation."
+            echo -e "${RED}Exiting insert operation.${NC}"
             return 1
         fi
 
         validate_input "$table_name" "Table name"
         if [ $? -ne 0 ]; then
-            echo "Invalid table name. Please enter a valid table name or type 'exit' to cancel."
+            echo -e "${RED}Invalid table name. Please enter a valid table name or type 'exit' to cancel.${NC}"
             continue
         fi
 
         # Validate table existence
         if [ ! -f "$database_path/$table_name.txt" ]; then
-            echo "Table '$table_name' does not exist. Please enter a valid table name or type 'exit' to cancel."
+            echo -e "${RED}Table '$table_name' does not exist. Please enter a valid table name or type 'exit' to cancel.${NC}"
             continue
         fi
         break
@@ -147,39 +165,38 @@ insert_into_table() {
     insert_into_table_data "$table_name"
 }
 
-
 # select_from_table() {
 select_from_table() {
-    echo "Select from table:"
-
+    echo -e "${BOLD}${CYAN}Select From Table${NC}"
+    echo -e "${LINE}"
     # List available tables
     list_tables
     if [ $? -ne 0 ]; then
-        echo "Failed to list tables. Exiting select operation."
+        echo -e "${RED}Failed to list tables. Exiting select operation.${NC}"
         return 1
     fi
 
     # Prompt user to select a table
     local table_name
-    read -p "Enter the name of the table to select from or type 'exit' to cancel: " table_name
+    read -p "$(echo -e ${YELLOW}"Enter the name of the table to select from or type 'exit' to cancel: "${NC})" table_name
     if [ "$table_name" = "exit" ]; then
-        echo "Exiting select operation."
+        echo -e "${RED}Exiting select operation.${NC}"
         return 1
     fi
 
     # Validate table name
     validate_input "$table_name" "Table name"
     if [ $? -ne 0 ]; then
-        echo "Invalid table name. Please enter a valid table name or type 'exit' to cancel."
+        echo -e "${RED}Invalid table name. Please enter a valid table name or type 'exit' to cancel.${NC}"
         return 1
     fi
 
     local data_file="$database_path/${table_name}.txt"
     if [ ! -f "$data_file" ]; then
-        echo "Error: Data file for table '$table_name' not found."
+        echo -e "${RED}Error: Data file for table '$table_name' not found.${NC}"
         return 1
     elif [ ! -s "$data_file" ]; then
-        echo "Warning: Data file for table '$table_name' is empty. No rows to select."
+        echo -e "${YELLOW}Warning: Data file for table '$table_name' is empty. No rows to select.${NC}"
         return 1
     fi
 
@@ -188,29 +205,29 @@ select_from_table() {
     local column_count=$(echo "$columns" | wc -w)
     local numbered_columns=""
     local i=1
-    echo "Column Names:"
+    echo -e "${GREEN}Column Names:${NC}"
     for col_name in $columns; do
-        echo "$i. $col_name  "
+        echo -e "${CYAN}$i. $col_name  ${NC}"
         ((i++))
     done
 
     # Show numbered column names
     # Prompt user to select columns
-    read -p "Enter the numbers of the columns you want to select (separated by commas) or type 'all' to select all columns: " selected_columns
+    read -p "$(echo -e ${YELLOW}"Enter the numbers of the columns you want to select (separated by commas) or type 'all' to select all columns: "${NC})" selected_columns
     if [ "$selected_columns" = "all" ]; then
         selected_columns=$(seq -s, 1 $column_count)
     fi
 
     if [ -z "$selected_columns" ]; then
-        echo "Invalid column number '$col_num'. Please enter valid column numbers."
-            return 1 
+        echo -e "${RED}Invalid column number '$col_num'. Please enter valid column numbers.${NC}"
+        return 1 
     fi
 
     # Validate selected column numbers
     IFS=',' read -r -a column_numbers <<< "$selected_columns"
     for col_num in "${column_numbers[@]}"; do
         if ! [[ "$col_num" =~ ^[1-$column_count]$ ]]; then
-            echo "Invalid column number '$col_num'. Please enter valid column numbers."
+            echo -e "${RED}Invalid column number '$col_num'. Please enter valid column numbers.${NC}"
             return 1
         fi
     done
@@ -218,14 +235,14 @@ select_from_table() {
     # Prompt user for filter column and value
     local filter_column
     local filter_value
-    read -p "Enter the name of the filter column or leave blank for no filter: " filter_column
+    read -p "$(echo -e ${YELLOW}"Enter the name of the filter column or leave blank for no filter: "${NC})" filter_column
     if [ -n "$filter_column" ]; then
         validate_input "$filter_column" "Filter column"
         if [ $? -ne 0 ]; then
-            echo "Invalid filter column name. Please enter a valid column name or leave blank for no filter."
+            echo -e "${RED}Invalid filter column name. Please enter a valid column name or leave blank for no filter.${NC}"
             return 1
         fi
-        read -p "Enter the value to filter by: " filter_value
+        read -p "$(echo -e ${YELLOW}"Enter the value to filter by: "${NC})" filter_value
     fi
 
     # Display selected data
@@ -233,36 +250,36 @@ select_from_table() {
 }
 
 delete_from_table() {
-    echo "Delete from table:"
-
+    echo -e "${BOLD}${CYAN}Delete From Table${NC}"
+    echo -e "${LINE}"
     # List available tables
     list_tables
     if [ $? -ne 0 ]; then
-        echo "Failed to list tables. Exiting delete operation."
+        echo -e "${RED}Failed to list tables. Exiting delete operation.${NC}"
         return 1
     fi
 
     # Prompt user to select a table
     local table_name
-    read -p "Enter the name of the table to delete from or type 'exit' to cancel: " table_name
+    read -p "$(echo -e ${YELLOW}"Enter the name of the table to delete from or type 'exit' to cancel: "${NC})" table_name
     if [ "$table_name" = "exit" ]; then
-        echo "Exiting delete operation."
+        echo -e "${RED}Exiting delete operation.${NC}"
         return 1
     fi
 
     # Validate table name
     validate_input "$table_name" "Table name"
     if [ $? -ne 0 ]; then
-        echo "Invalid table name. Please enter a valid table name or type 'exit' to cancel."
+        echo -e "${RED}Invalid table name. Please enter a valid table name or type 'exit' to cancel.${NC}"
         return 1
     fi
 
     local data_file="$database_path/${table_name}.txt"
     if [ ! -f "$data_file" ]; then
-        echo "Error: Data file for table '$table_name' not found."
+        echo -e "${RED}Error: Data file for table '$table_name' not found.${NC}"
         return 1
     elif [ ! -s "$data_file" ]; then
-        echo "Warning: Data file for table '$table_name' is empty. No rows to delete."
+        echo -e "${YELLOW}Warning: Data file for table '$table_name' is empty. No rows to delete.${NC}"
         return 1
     fi
 
@@ -271,9 +288,9 @@ delete_from_table() {
     local column_count=$(echo "$columns" | wc -w)
     local numbered_columns=""
     local i=1
-    echo "Column Names:"
+    echo -e "${GREEN}Column Names:${NC}"
     for col_name in $columns; do
-        echo "$i. $col_name  "
+        echo -e "${CYAN}$i. $col_name  ${NC}"
         ((i++))
     done
 
@@ -281,10 +298,10 @@ delete_from_table() {
     local filter_column
     local filter_value
     while true; do
-        read -p "Enter the name of the filter column: " filter_column
+        read -p "$(echo -e ${YELLOW}"Enter the name of the filter column: "${NC})" filter_column
         validate_input "$filter_column" "Filter column"
         if [ $? -ne 0 ]; then
-            echo "Invalid filter column name. Please enter a valid column name."
+            echo -e "${RED}Invalid filter column name. Please enter a valid column name.${NC}"
             continue
         fi
         local valid_column=false
@@ -295,28 +312,70 @@ delete_from_table() {
             fi
         done
         if [ "$valid_column" = false ]; then
-            echo "Invalid filter column name. Please enter a valid column name."
+            echo -e "${RED}Invalid filter column name. Please enter a valid column name.${NC}"
             continue
         fi
         break
     done
 
-    read -p "Enter the value to filter by: " filter_value
+    read -p "$(echo -e ${YELLOW}"Enter the value to filter by: "${NC})" filter_value
 
     # Delete rows based on filter criteria
     delete_rows "$table_name" "$filter_column" "$filter_value"
 }
 
 update_from_table() {
-    echo "Function for updating from a table goes here"
+    echo -e "${BOLD}${CYAN}Update Table${NC}"
+    echo -e "${LINE}"
+    list_tables
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Failed to list tables. Exiting update operation.${NC}"
+        return 1
+    fi
+
+    local table_name
+    read -p "$(echo -e ${YELLOW}"Enter the name of the table to update or type 'exit' to cancel: "${NC})" table_name
+    if [ "$table_name" = "exit" ]; then
+        echo -e "${RED}Exiting update operation.${NC}"
+        return 0
+    fi
+
+    validate_input "$table_name" "Table name"
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Invalid table name. Please enter a valid table name or type 'exit' to cancel.${NC}"
+        return 1
+    fi
+
+    if [ ! -f "$database_path/${table_name}.txt" ]; then
+        echo -e "${RED}Table '$table_name' does not exist.${NC}"
+        return 1
+    fi
+    local data_file="$database_path/${table_name}.txt"
+    local meta_file="$database_path/${table_name}-meta.txt"
+    local columns=$(awk -F ':' '{print $1}' "$database_path/${table_name}-meta.txt")
+    local data_types=$(awk -F ':' '{print $2}' "$meta_file")
+    local allow_nulls=$(awk -F ':' '{print $3}' "$meta_file")
+    local allow_uniques=$(awk -F ':' '{print $4}' "$meta_file")
+
+    local column_count=$(echo "$columns" | wc -w)
+    local numbered_columns=""
+    local i=1
+    echo -e "${GREEN}Column Names:${NC}"
+    for col_name in $columns; do
+        echo -e "${CYAN}$i. $col_name${NC}"
+        ((i++))
+    done
+
+    select_filter_column "$table_name" "$columns" "$data_file" "$meta_file"
 }
 
 # Main function for the second menu
 second_menu() {
-    echo "Welcome to the Second Menu for Database: $database_name"
+    echo -e "${BOLD}${CYAN}Welcome to the Second Menu for Database: $database_name${NC}"
+    echo -e "${LINE}"
 
     while true; do
-        PS3="Please select an option (select a number from the above): "
+        PS3="$(echo -e ${YELLOW}"Please select an option (select a number from the above): "${NC})"
         options=("Create Table" "List Tables" "Drop Table" "Insert Into Table" "Select From Table" "Delete From Table" "Update Table" "Return to Main Menu")
 
         select opt in "${options[@]}"; do
@@ -328,13 +387,15 @@ second_menu() {
                 5) select_from_table ;;
                 6) delete_from_table ;;
                 7) update_from_table ;;
-                8) echo "Returning to main menu."; return ;;
-                *) echo "Invalid option. Please try again." ;;
+                8) echo -e "${GREEN}Returning to main menu.${NC}"; return ;;
+                *) echo -e "${RED}Invalid option. Please try again.${NC}" ;;
             esac
             break
         done
     done
 }
+
+
 
 # Call the second menu function to start the application
 second_menu

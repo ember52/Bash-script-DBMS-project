@@ -19,6 +19,7 @@ database_path="Databases/$database_name"
 
 # Function to create a new table
 create_table() {
+    clear
     echo -e "${BOLD}${CYAN}Create a New Table${NC}"
     echo -e "${LINE}"
     while true; do
@@ -26,11 +27,10 @@ create_table() {
 
         if [ "$table_name" = "exit" ]; then
             echo -e "${RED}Exiting without creating a table.${NC}"
-            return
+            return 0
         fi
 
         validate_input "$table_name" "Table name"
-
         if [ $? -ne 0 ]; then
             continue
         fi
@@ -51,8 +51,8 @@ create_table() {
             # Delete table files if no primary key was selected
             rm "$database_path/$table_name.txt" || { echo -e "${RED}Failed to delete data file for table '$table_name'.${NC}"; return; }
             rm "$database_path/${table_name}-meta.txt" || { echo -e "${RED}Failed to delete metadata file for table '$table_name'.${NC}"; return; }
-            echo -e "${RED}Table creation canceled due to the absence of a primary key.${NC}"
-            continue
+            echo -e "${RED}Table creation canceled.${NC}"
+            return 1
         fi
         break
     done
@@ -75,6 +75,7 @@ list_tables() {
 }
 
 drop_table() {
+    clear
     while true; do
         echo -e "${YELLOW}Dropping a table...${NC}"
         echo -e "${LINE}"
@@ -131,6 +132,7 @@ drop_table() {
 }
 
 insert_into_table() {
+    clear
     echo -e "${BOLD}${CYAN}Insert Into Table${NC}"
     echo -e "${LINE}"
     # List available tables
@@ -169,13 +171,14 @@ insert_into_table() {
 
 # Select from table function 
 select_from_table() {
+    clear
     echo -e "${BOLD}${CYAN}Select From Table${NC}"
     echo -e "${LINE}"
     # List available tables
     list_tables
     if [ $? -ne 0 ]; then
         echo -e "${RED}Failed to list tables. Exiting select operation.${NC}"
-        return 1
+        return 0
     fi
 
     # Prompt user to select a table
@@ -222,7 +225,7 @@ select_from_table() {
     fi
 
     if [ -z "$selected_columns" ]; then
-        echo -e "${RED}Invalid column number '$col_num'. Please enter valid column numbers.${NC}"
+        echo -e "${RED}Invalid column number. Please enter valid column numbers.${NC}"
         return 1 
     fi
 
@@ -255,6 +258,7 @@ select_from_table() {
 
 # Delete from table function 
 delete_from_table() {
+    clear
     echo -e "${BOLD}${CYAN}Delete From Table${NC}"
     echo -e "${LINE}"
     # List available tables
@@ -324,46 +328,11 @@ delete_from_table() {
     delete_rows "$table_name" "$filter_column" "$filter_value"
 }
 
-# Update table function
-update_from_table() {
-    echo "Update from table:"
-
-    # List available tables
-    list_tables
-    if [ $? -ne 0 ]; then
-        echo "Failed to list tables. Exiting update operation."
-        return 1
-    fi
-
-    # Prompt user to select a table
-    local table_name
-    read -p "$(echo -e ${CYAN}"Enter the name of the table to update or type 'exit' to cancel: "${NC}) " table_name
-
-    if [ "$table_name" = "exit" ]; then
-        echo "Exiting update operation."
-        return 0
-    fi
-
-    # Validate table name
-    validate_input "$table_name" "Table name"
-    if [ $? -ne 0 ]; then
-        echo "Invalid table name. Please enter a valid table name or type 'exit' to cancel."
-        return 1
-    fi
-
-    # Check if the table exists
-    validate_table_existence "$table_name" "$database_path"
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Invalid table name. Table doesn't exist.${NC}"
-        return 1
-    fi
-
-    select_filter_column "$table_name" "$database_path" 
-}
 
 
 # Main function for the second menu
 second_menu() {
+    clear
     echo -e "${BOLD}${CYAN}Welcome to the Second Menu for Database: $database_name${NC}"
     echo -e "${LINE}"
 

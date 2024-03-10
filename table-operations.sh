@@ -41,6 +41,22 @@ validate_input() {
     return 0
 }
 
+# Function to validate table name
+validate_table_existence() {
+    local table_name="$1"
+    local database_path="$2"
+    local data_file="${database_path}/${table_name}.txt"
+    local meta_file="${database_path}/${table_name}-meta.txt"
+    if [ ! -f "$data_file" ]; then
+        return 1
+    fi
+
+    if [ ! -f "$meta_file" ]; then
+        return 1
+    fi
+}
+
+
 add_columns() {
     local table_name="$1"
     local database_path="$2"
@@ -48,7 +64,7 @@ add_columns() {
     local primary_key_selected=false
     local column_names=()
     while true; do
-        read -p "Enter the number of columns for the table (max 20): " num_columns
+        read -p "$(echo -e ${CYAN}"Enter the number of columns for the table (max 20): "${NC}) " num_columns
         if ! [[ "$num_columns" =~ ^[1-9]$|^1[0-9]$|^20$ ]]; then
             echo -e "${RED}Invalid input. Please enter a number between 1 and 20.${NC}"
             echo -e "${CYAN}========================================================================================================================================================${NC}"
@@ -60,7 +76,7 @@ add_columns() {
 
     for ((i = 1; i <= num_columns; i++)); do
         while true; do
-            read -p "Enter name for column $i or type 'exit' to cancel: " column_name
+            read -p "$(echo -e ${CYAN}"Enter name for column $i or type 'exit' to cancel: "${NC}) " column_name
             validate_input "$column_name" "Column name"
             if [ $? -ne 0 ]; then
                 continue
@@ -81,7 +97,7 @@ add_columns() {
             break
         done
 
-        read -p "Enter data type for column $column_name (string/integer): " data_type
+        read -p "$(echo -e ${CYAN}"Enter data type for column $column_name (string/integer): "${NC}) " data_type
         if [[ "$data_type" != "string" && "$data_type" != "integer" ]]; then
             echo -e "${RED}Invalid data type. Please enter 'string' or 'integer'.${NC}"
             echo -e "${CYAN}========================================================================================================================================================${NC}"
@@ -89,7 +105,7 @@ add_columns() {
             continue
         fi
 
-        read -p "Allow null values for column $column_name? (yes/no): " allow_null
+        read -p "$(echo -e ${CYAN}"Allow null values for column $column_name? (yes/no): "${NC}) " allow_null
         if [[ "$allow_null" != "yes" && "$allow_null" != "no" ]]; then
             echo -e "${RED}Invalid input. Please enter 'yes' or 'no'.${NC}"
             echo -e "${CYAN}========================================================================================================================================================${NC}"
@@ -97,7 +113,7 @@ add_columns() {
             continue
         fi
 
-        read -p "Allow unique values for column $column_name? (yes/no): " allow_unique
+        read -p "$(echo -e ${CYAN}"Allow unique values for column $column_name? (yes/no): "${NC}) " allow_unique
         if [[ "$allow_unique" != "yes" && "$allow_unique" != "no" ]]; then
             echo -e "${RED}Invalid input. Please enter 'yes' or 'no'.${NC}"
             echo -e "${CYAN}========================================================================================================================================================${NC}"
@@ -106,7 +122,7 @@ add_columns() {
         fi
 
         if [ "$primary_key_selected" = false ]; then
-            read -p "Is column $column_name the primary key? (yes/no): " is_primary
+            read -p "$(echo -e ${CYAN}"Is column $column_name the primary key? (yes/no): "${NC}) " is_primary
             if [[ "$is_primary" != "yes" && "$is_primary" != "no" ]]; then
                 echo -e "${RED}Invalid input. Please enter 'yes' or 'no'.${NC}"
                 echo -e "${CYAN}========================================================================================================================================================${NC}"

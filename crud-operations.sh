@@ -10,6 +10,8 @@ CYAN='\033[1;36m'
 BLACK='\033[1;30m'
 NC='\033[0m' # No Color
 
+
+# Function for inserting into table
 insert_into_table_data() {
     local table_name="$1"
     local meta_file="$database_path/${table_name}-meta.txt"
@@ -27,7 +29,7 @@ insert_into_table_data() {
         is_primary="${column[4]}"
         
         while true; do
-            read -p "Enter value for $column_name (type exit to cancel): " value
+            read -p "$(echo -e ${CYAN}"Enter value for '$column_name' (data type: ($data_type) , allow nulls: ($allow_null) , allow unique values: ($allow_unique) ) or type 'exit' to cancel:"${NC}) " value
             # Check if user wants to exit
             if [ "$value" = "exit" ]; then
                 echo -e "${YELLOW}Exiting without inserting data.${NC}"
@@ -98,6 +100,7 @@ insert_into_table_data() {
 }
 
 
+# Function for displaying from table
 
 display_selected_data() {
     local table_name="$1"
@@ -148,6 +151,9 @@ display_selected_data() {
 
 }
 
+
+# Function for deleting from table
+
 delete_rows() {
     local table_name="$1"
     local filter_column="$2"
@@ -177,17 +183,30 @@ delete_rows() {
     fi
 }
 
-select_filter_column() {
-    local table_name=$1
-    local columns=$2
-    local data_file=$3
-    local meta_file=$4
 
+# Functions for updating table:
+
+select_filter_column () {
+    local table_name="$1"
+    local database_path="$2"
+    local meta_file="$database_path/${table_name}-meta.txt"
+    # Get column names from metadata file
+    local columns=$(awk -F ':' '{print $1}' "$database_path/${table_name}-meta.txt")
+    local i=1
+    echo "Column Names:"
+    for col_name in $columns; do
+        echo "$i. $col_name"
+        ((i++))
+    done
+
+    # Prompt user to select a column to match
     local filter_column
     local filter_column_index
-
+    
+    # Validate the entered column against available columns
     while true; do
-        read -p "Enter the name of the filter column or type 'exit' to cancel: " filter_column
+        read -p "$(echo -e ${CYAN}"Enter the name of the filter column or type 'exit' to cancel: "${NC}) " filter_column
+
         validate_input "$filter_column" "Filter column"
         if [ "$filter_column" = "exit" ]; then
             echo "Exiting update operation."
@@ -220,122 +239,145 @@ select_filter_column() {
         ((j++))
     done
 
+    # Prompt user for the value to match in the selected column
     local filter_value
-    read -p "Enter the value to match in the column '$filter_column': " filter_value
+    read -p "$(echo -e ${CYAN}"Enter the value to match in the column '$filter_column': "${NC}) " filter_value
 
-    local column_values=$(awk -F ':' -v idx="$filter_column_index" '{print $idx}' "$data_file")
 
-    if echo "$column_values" | grep -qw "$filter_value"; then
-        select_update_column "$table_name" "$columns" "$data_file" "$meta_file" "$filter_column_index" "$filter_value"
-    else
-        echo "Value '$filter_value' not found in the column '$filter_column'."
-    fi
+    # Get the values of the selected column
+    local column_values=$(awk -F ':' -v idx="$filter_column_index" '{print $idx}' "$database_path/${table_name}.txt")
+    echo "filter value $filter_value"
+    select_update_column "$table_name" "$database_path" "$columns" "$filter_column" "$filter_column_index" "$filter_value" "$column_values"
 }
 
 select_update_column() {
-    local table_name=$1
-    local columns=$2
-    local data_file=$3
-    local meta_file=$4
-    local filter_column_index=$5
-    local filter_value=$6
+    local table_name="$1"
+    local database_path="$2"
+    local columns="$3"
+    local filter_column="$4"
+    local filter_column_index="$5"
+    local filter_value="$6"
+    local column_values="$7"
+    echo "filter value $filter_value"
 
-    local update_column
-    while true; do
-        read -p "Enter the name of the update column or type 'exit' to cancel: " update_column
-        if [ "$update_column" = "exit" ]; then
-            echo "Exiting update operation."
-            return 0
-        fi
-        validate_input "$update_column" "Update column"
-        if [ $? -ne 0 ]; then
-            echo "Invalid filter column name. Please enter a valid column name."
-            continue
-        fi
-        local valid_column2=false
+    local data_file="$database_path/${table_name}.txt"
+    local meta_file="$database_path/${table_name}-meta.txt"
+    # Check if the entered value exists in the column
+    if echo "$column_values" | grep -qw "$filter_value"; then
+        # Prompt user to select a column to update
+        local update_column
+        while true; do
+            read -p "$(echo -e ${CYAN}"Enter the name of the update column or type 'exit' to cancel: "${NC}) " update_column
+
+            if [ "$update_column" = "exit" ]; then
+                echo "Exiting update operation."
+                return 0
+            fi
+            validate_input "$update_column" "Update column"
+            if [ $? -ne 0 ]; then
+                echo "Invalid filter column name. Please enter a valid column name."
+                continue
+            fi
+            local valid_column2=false
+            for col in $columns; do
+                if [ "$update_column" = "$col" ]; then
+                    valid_column2=true
+                    break
+                fi
+            done
+            if [ "$valid_column2" = false ]; then
+                echo "Invalid filter column name. column doesn't exist"
+                continue
+            fi
+            break
+        done
+        # Validate the entered column against available columns
+        local update_column_index
+        i=1
         for col in $columns; do
             if [ "$update_column" = "$col" ]; then
-                valid_column2=true
+                update_column_index=$i
                 break
             fi
+            ((i++))
         done
-        if [ "$valid_column2" = false ]; then
-            echo "Invalid filter column name. column doesn't exist"
-            continue
-        fi
-        break
-    done
 
-    local update_column_index
-    local i=1
-    for col in $columns; do
-        if [ "$update_column" = "$col" ]; then
-            update_column_index=$i
-            break
-        fi
-        ((i++))
-    done
+        local new_value
+        read -p "$(echo -e ${CYAN}"Enter the new value for column '$update_column': "${NC}) " new_value
+        # Validate the new value based on column constraints
+        # Get column constraints from metadata file
+        local data_types=$(awk -F ':' '{print $2}' "$meta_file")
+        local allow_nulls=$(awk -F ':' '{print $3}' "$meta_file")
+        local allow_uniques=$(awk -F ':' '{print $4}' "$meta_file")
+        local update_column_type=$(echo "$data_types" | cut -d $'\n' -f "$update_column_index")
+        local allow_null=$(echo "$allow_nulls" | cut -d $'\n' -f "$update_column_index")
+        local allow_unique=$(echo "$allow_uniques" | cut -d $'\n' -f "$update_column_index")
+    
+        if [ -z "$new_value" ]; then
+                if [ "$allow_null" = "yes" ]; then
+                    new_value="null"
+                else
+                    echo -e "${RED}Null value is not allowed for column '$update_column'.${NC}"
+                    return 1
+                fi
+            fi
 
-    local new_value
-    read -p "Enter the new value for column '$update_column': " new_value
-
-    local update_column_type=$(echo "$data_types" | cut -d $'\n' -f "$update_column_index")
-    local allow_null=$(echo "$allow_nulls" | cut -d $'\n' -f "$update_column_index")
-    local allow_unique=$(echo "$allow_uniques" | cut -d $'\n' -f "$update_column_index")
-
-    if [ -z "$new_value" ]; then
-        if [ "$allow_null" = "yes" ]; then
-            new_value="null"
-        else
+        # Check if the value is 'null' and the column does not allow null
+        if [ "$new_value" = "null" ] && [ "$allow_null" != "yes" ]; then
             echo -e "${RED}Null value is not allowed for column '$update_column'.${NC}"
             return 1
         fi
-    fi
 
-    if [ "$new_value" = "null" ] && [ "$allow_null" != "yes" ]; then
-        echo -e "${RED}Null value is not allowed for column '$update_column'.${NC}"
-        return 1
-    fi
 
-    if [ "$update_column_type" = "integer" ]; then
-        if ! [[ "$new_value" =~ ^[0-9]+$ ]]; then
-            echo "Invalid value. Column '$update_column' requires an integer value."
-            return 1
-        fi
-    elif [ "$update_column_type" = "string" ]; then
-        if [[ ! "$new_value" =~ ^[a-zA-Z0-9._%+-@]+$ ]]; then
-            echo "Invalid value. Column '$update_column' requires a string value."
-            return 1
-        fi
-    fi
-
-    if [ "$allow_unique" = "yes" ]; then
-        column_values=$(awk -F ':' -v idx="$update_column_index" '{print $idx}' "$database_path/$table_name.txt")
-        unique=true
-        for existing_value in $column_values; do
-            if [ "$existing_value" = "null" ]; then
-                continue
+        if [ "$update_column_type" = "integer" ]; then
+            if ! [[ "$new_value" =~ ^[0-9]+$ ]]; then
+                echo "Invalid value. Column '$update_column' requires an integer value."
+                return 1
             fi
-            if [ "$existing_value" = "$new_value" ]; then
-                echo -e "${RED}Value '$new_value' already exists in column '$update_column'.${NC}"
-                unique=false
-                break
+        elif [ "$update_column_type" = "string" ]; then
+            if [[ ! "$new_value" =~ ^[a-zA-Z0-9._%+-@]+$ ]]; then
+                echo "Invalid value. Column '$update_column' requires a string value."
+                return 1
             fi
-        done
-        if ! $unique; then
-            return 1
         fi
-    fi
 
-    awk -F':' -v index1="$filter_column_index" -v index2="$update_column_index" -v value1="$filter_value" -v value2="$new_value" '
-    BEGIN {
-        OFS=":";
-    }
-    {
-        if ($index1 == value1) {
-            $(index2) = value2;
+        if [ "$allow_unique" = "yes" ]; then
+            # Extract column values from data file
+            column_values=$(awk -F ':' -v idx="$update_column_index" '{print $idx}' "$database_path/$table_name.txt")
+            # Check if value already exists in the column
+            unique=true
+            for existing_value in $column_values; do
+                # Skip null values
+                if [ "$existing_value" = "null" ]; then
+                    continue
+                fi
+                
+                if [ "$existing_value" = "$new_value" ]; then
+                    echo -e "${RED}Value '$new_value' already exists in column '$update_column'.${NC}"
+                    unique=false
+                    break
+                fi
+            done
+            if ! $unique; then
+                return 1
+            fi
+        fi
+
+
+        awk -F':' -v index1="$filter_column_index" -v index2="$update_column_index" -v value1="$filter_value" -v value2="$new_value" '
+        BEGIN {
+            OFS=":";
         }
-        print $0;
-    }' "$data_file" > temp_file && mv temp_file "$data_file"
-    echo "Update table '$table_name' successfully"
+        {
+            if ($index1 == value1) {
+                $(index2) = value2;
+            }
+            print $0;
+        }' "$data_file" > temp_file && mv temp_file "$data_file"
+        echo "Update table '$table_name' successfully"
+
+
+    else
+        echo "Value '$filter_value' not found in the column '$filter_column'."
+    fi
 }

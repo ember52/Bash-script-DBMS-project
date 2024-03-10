@@ -17,12 +17,12 @@ create_database() {
     if [ ! -d "Databases" ]; then
         echo -e "${YELLOW}Creating 'Databases' directory${NC}"
         echo -e "${CYAN}========================================================================================================================================================${NC}"
-        mkdir -p Databases || { echo -e "${RED}Failed to create 'Databases' directory${NC}"; exit 1; }
+        mkdir -p Databases || { echo -e "${RED}Failed to create 'Databases' directory${NC}"; return 1; }
     fi
 
     while true; do
         echo -e "${CYAN}========================================================================================================================================================${NC}"
-        read -p "Enter database name or type 'exit' to cancel: " dbname
+        read -p "$(echo -e ${YELLOW}"Enter database name or type 'exit' to cancel: "${NC})" dbname
 
         if [ "$dbname" = "exit" ]; then
             echo -e "${CYAN}========================================================================================================================================================${NC}"
@@ -42,13 +42,13 @@ create_database() {
             continue
         fi
 
-        if [ -d "$dbname" ]; then
+        if [ -d "Databases/$dbname" ]; then
             echo -e "${CYAN}========================================================================================================================================================${NC}"
             echo -e "${RED}Database '$dbname' already exists. Please enter a different name.${NC}"
-            return 1
+            continue
         fi
 
-        mkdir "Databases/$dbname" || { echo -e "${RED}Failed to create database '$dbname'${NC}"; exit 1; }
+        mkdir "Databases/$dbname" || { echo -e "${RED}Failed to create database '$dbname'${NC}"; return 1; }
         echo -e "${CYAN}========================================================================================================================================================${NC}"
         echo -e "${GREEN}Database '$dbname' created successfully.${NC}"
         break
@@ -97,7 +97,7 @@ connect_to_database() {
 
     while true; do
         echo -e "${CYAN}========================================================================================================================================================${NC}"
-        read -p "Enter the name of the database to connect to or type 'exit' to cancel: " dbname
+        read -p "$(echo -e ${YELLOW}"Enter the name of the database to connect to or type 'exit' to cancel: "${NC})" dbname
 
         if [ "$dbname" = "exit" ]; then
             echo -e "${CYAN}========================================================================================================================================================${NC}"
@@ -148,7 +148,7 @@ drop_database() {
     while true; do
         list_databases
         echo -e "${CYAN}========================================================================================================================================================${NC}"
-        read -p "Enter database name to drop or type 'exit' to cancel: " dbname
+        read -p "$(echo -e ${YELLOW}"Enter database name to drop or type 'exit' to cancel: "${NC})" dbname
 
         if [ "$dbname" = "exit" ]; then
             echo -e "${CYAN}========================================================================================================================================================${NC}"
@@ -195,7 +195,8 @@ drop_database() {
 
 main_menu() {
     while true; do
-        PS3="Please enter your choice (select a number from the above): "
+        PS3="$(echo -e ${BOLD}${YELLOW}"Please enter your choice (select a number from the above):"${NC})"
+        
         echo -e "${BOLD}${CYAN}Welcome to Database Manager!${NC}"
         echo -e "${CYAN}========================================================================================================================================================${NC}"
 

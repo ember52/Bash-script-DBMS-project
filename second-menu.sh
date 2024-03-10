@@ -8,7 +8,7 @@ MAGENTA='\033[1;35m'
 CYAN='\033[1;36m'
 NC='\033[0m'
 BOLD='\033[1m'
-LINE='\033[1;37m============================================================\033[0m'
+LINE='\033[1;37m========================================================================================\033[0m'
 echo -e "${BOLD}${CYAN}Welcome to Database Manager!${NC}"
 echo -e "${LINE}"
 # Accepting the database name as a parameter
@@ -75,15 +75,14 @@ list_tables() {
 }
 
 drop_table() {
-    echo -e "${BOLD}${CYAN}Drop a Table${NC}"
-    echo -e "${LINE}"
     while true; do
         echo -e "${YELLOW}Dropping a table...${NC}"
+        echo -e "${LINE}"
         # List existing tables
         list_tables
         # Check if there are no tables
         if [ $? -ne 0 ]; then
-            echo -e "${RED}Failed to list tables.${NC}"
+            echo -e "${RED}Failed to list tables(no tables exist). ${NC}"
             return 1
         fi
 
@@ -104,8 +103,9 @@ drop_table() {
         fi
 
         # Check if the table file exists
-        if [ ! -f "$database_path/$table_name.txt" ]; then
-            echo -e "${RED}Table '$table_name' does not exist.${NC}"
+        validate_table_existence "$table_name" "$database_path"
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}Invalid table name. Table doesn't exist.${NC}"
             continue
         fi
 
@@ -154,9 +154,10 @@ insert_into_table() {
             continue
         fi
 
-        # Validate table existence
-        if [ ! -f "$database_path/$table_name.txt" ]; then
-            echo -e "${RED}Table '$table_name' does not exist. Please enter a valid table name or type 'exit' to cancel.${NC}"
+        # Check if the table file exists
+        validate_table_existence "$table_name" "$database_path"
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}Invalid table name. Table doesn't exist.${NC}"
             continue
         fi
         break
@@ -165,7 +166,8 @@ insert_into_table() {
     insert_into_table_data "$table_name"
 }
 
-# select_from_table() {
+
+# Select from table function 
 select_from_table() {
     echo -e "${BOLD}${CYAN}Select From Table${NC}"
     echo -e "${LINE}"
@@ -191,19 +193,20 @@ select_from_table() {
         return 1
     fi
 
-    local data_file="$database_path/${table_name}.txt"
-    if [ ! -f "$data_file" ]; then
-        echo -e "${RED}Error: Data file for table '$table_name' not found.${NC}"
-        return 1
-    elif [ ! -s "$data_file" ]; then
-        echo -e "${YELLOW}Warning: Data file for table '$table_name' is empty. No rows to select.${NC}"
+    
+    # Check if the table file exists
+    validate_table_existence "$table_name" "$database_path"
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Invalid table name. Table doesn't exist.${NC}"
         return 1
     fi
 
+    #Get file paths
+    local data_file="$database_path/${table_name}.txt"
+    local meta_file="$database_path/${table_name}-meta.txt"
     # Get column names from metadata file and number them
     local columns=$(awk -F ':' '{print $1}' "$database_path/${table_name}-meta.txt")
     local column_count=$(echo "$columns" | wc -w)
-    local numbered_columns=""
     local i=1
     echo -e "${GREEN}Column Names:${NC}"
     for col_name in $columns; do
@@ -249,6 +252,8 @@ select_from_table() {
     display_selected_data "$table_name" "$selected_columns" "$columns" "$filter_column" "$filter_value"
 }
 
+
+# Delete from table function 
 delete_from_table() {
     echo -e "${BOLD}${CYAN}Delete From Table${NC}"
     echo -e "${LINE}"
@@ -274,19 +279,14 @@ delete_from_table() {
         return 1
     fi
 
-    local data_file="$database_path/${table_name}.txt"
-    if [ ! -f "$data_file" ]; then
-        echo -e "${RED}Error: Data file for table '$table_name' not found.${NC}"
-        return 1
-    elif [ ! -s "$data_file" ]; then
-        echo -e "${YELLOW}Warning: Data file for table '$table_name' is empty. No rows to delete.${NC}"
+    validate_table_existence "$table_name" "$database_path"
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Invalid table name. Table doesn't exist.${NC}"
         return 1
     fi
 
     # Get column names from metadata file and number them
     local columns=$(awk -F ':' '{print $1}' "$database_path/${table_name}-meta.txt")
-    local column_count=$(echo "$columns" | wc -w)
-    local numbered_columns=""
     local i=1
     echo -e "${GREEN}Column Names:${NC}"
     for col_name in $columns; do
@@ -324,50 +324,43 @@ delete_from_table() {
     delete_rows "$table_name" "$filter_column" "$filter_value"
 }
 
+# Update table function
 update_from_table() {
-    echo -e "${BOLD}${CYAN}Update Table${NC}"
-    echo -e "${LINE}"
+    echo "Update from table:"
+
+    # List available tables
     list_tables
     if [ $? -ne 0 ]; then
-        echo -e "${RED}Failed to list tables. Exiting update operation.${NC}"
+        echo "Failed to list tables. Exiting update operation."
         return 1
     fi
 
+    # Prompt user to select a table
     local table_name
-    read -p "$(echo -e ${YELLOW}"Enter the name of the table to update or type 'exit' to cancel: "${NC})" table_name
+    read -p "$(echo -e ${CYAN}"Enter the name of the table to update or type 'exit' to cancel: "${NC}) " table_name
+
     if [ "$table_name" = "exit" ]; then
-        echo -e "${RED}Exiting update operation.${NC}"
+        echo "Exiting update operation."
         return 0
     fi
 
+    # Validate table name
     validate_input "$table_name" "Table name"
     if [ $? -ne 0 ]; then
-        echo -e "${RED}Invalid table name. Please enter a valid table name or type 'exit' to cancel.${NC}"
+        echo "Invalid table name. Please enter a valid table name or type 'exit' to cancel."
         return 1
     fi
 
-    if [ ! -f "$database_path/${table_name}.txt" ]; then
-        echo -e "${RED}Table '$table_name' does not exist.${NC}"
+    # Check if the table exists
+    validate_table_existence "$table_name" "$database_path"
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Invalid table name. Table doesn't exist.${NC}"
         return 1
     fi
-    local data_file="$database_path/${table_name}.txt"
-    local meta_file="$database_path/${table_name}-meta.txt"
-    local columns=$(awk -F ':' '{print $1}' "$database_path/${table_name}-meta.txt")
-    local data_types=$(awk -F ':' '{print $2}' "$meta_file")
-    local allow_nulls=$(awk -F ':' '{print $3}' "$meta_file")
-    local allow_uniques=$(awk -F ':' '{print $4}' "$meta_file")
 
-    local column_count=$(echo "$columns" | wc -w)
-    local numbered_columns=""
-    local i=1
-    echo -e "${GREEN}Column Names:${NC}"
-    for col_name in $columns; do
-        echo -e "${CYAN}$i. $col_name${NC}"
-        ((i++))
-    done
-
-    select_filter_column "$table_name" "$columns" "$data_file" "$meta_file"
+    select_filter_column "$table_name" "$database_path" 
 }
+
 
 # Main function for the second menu
 second_menu() {
@@ -375,7 +368,7 @@ second_menu() {
     echo -e "${LINE}"
 
     while true; do
-        PS3="$(echo -e ${YELLOW}"Please select an option (select a number from the above): "${NC})"
+        PS3="$(echo -e ${YELLOW}"Database (${database_name}) >> Please select an option: "${NC})"
         options=("Create Table" "List Tables" "Drop Table" "Insert Into Table" "Select From Table" "Delete From Table" "Update Table" "Return to Main Menu")
 
         select opt in "${options[@]}"; do
@@ -394,8 +387,6 @@ second_menu() {
         done
     done
 }
-
-
 
 # Call the second menu function to start the application
 second_menu
